@@ -102,7 +102,19 @@
 
   setProgress(95);
 
-  /* 6 ── Input ───────────────────────────────────────────────────────────── */
+  /* 6 ── Pointer lock ────────────────────────────────────────────────────── */
+  const $capture = document.getElementById('capture-hint');
+
+  const requestLock = () => { if (!viewerOpen && !jumpOpen) cvs.requestPointerLock(); };
+  cvs.addEventListener('click', requestLock);
+
+  document.addEventListener('pointerlockchange', () => {
+    const locked = document.pointerLockElement === cvs;
+    $xhair.style.display  = locked ? 'block' : 'none';
+    $capture.style.display = locked ? 'none'  : 'flex';
+  });
+
+  /* 7 ── Input ───────────────────────────────────────────────────────────── */
   let hoveredArt    = null;
   let nearZone      = null;
   let transitioning = false;

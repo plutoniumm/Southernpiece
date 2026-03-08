@@ -69,8 +69,31 @@
       transition: width 0.4s ease;
     }
 
+    /* Click-to-capture overlay (shown when pointer is not locked) */
+    #capture-hint {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #capture-hint span {
+      color: rgba(200, 164, 88, 0.55);
+      font-size: 0.72rem;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      background: rgba(8, 4, 0, 0.55);
+      padding: 8px 22px;
+      border: 1px solid rgba(200, 164, 88, 0.2);
+    }
+
     /* Crosshair */
     #xhair {
+      display: none;
+      /* shown by JS when pointer is locked */
       position: fixed;
       top: 50%;
       left: 50%;
@@ -324,18 +347,21 @@
     </div>
   </div>
 
-  <div id="xhair"></div>
+  <div id="capture-hint">
+    <span>click to enter</span>
+  </div>
+
+  <div id="xhair" style="opacity: 0.25;"></div>
   <div id="floor-label"></div>
   <div id="room-name"></div>
-  <div id="hint">WASD · move &nbsp;&nbsp; mouse · look &nbsp;&nbsp; click · view artwork &nbsp;&nbsp; E · stairs
-    &nbsp;&nbsp; J · jump to floor</div>
+  <div id="hint">E · stairs &nbsp;&nbsp; F · floors</div>
   <div id="prompt"></div>
   <div id="stair-arrow"></div>
 
   <div id="jump-panel">
     <div id="jump-title">FLOORS</div>
     <div id="jump-list"></div>
-    <div id="jump-hint">click to jump · J or ESC to close</div>
+    <div id="jump-hint">click to jump · F or ESC to close</div>
   </div>
 
   <div id="viewer">
@@ -345,7 +371,11 @@
   </div>
 
   <script src="https://cdn.babylonjs.com/babylon.js"></script>
-  <script src="gallery.js"></script>
+  <script src="js/constants.js"></script>
+  <script src="js/loader.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/scene.js"></script>
+  <script src="js/main.js"></script>
 </body>
 
 </html>

@@ -25,6 +25,7 @@ let jumpOpen = false;
 // onSelect(targetFloor, currentFloor) injected by caller (avoids cross-scope issues)
 function openJumpPanel ( rooms, camera, onSelect ) {
   jumpOpen = true;
+  document.exitPointerLock();
   const curFloor = Math.max( 0, Math.min( rooms.length - 1,
     Math.round( ( camera.position.y - WT - 1.7 ) / FLOOR_STEP ) ) );
   $jumpList.innerHTML = '';
@@ -54,6 +55,7 @@ let viewerOpen = false;
 
 function openViewer ( art ) {
   viewerOpen = true;
+  document.exitPointerLock();
   $vContent.innerHTML = '';
   $vName.textContent = art.name;
 
