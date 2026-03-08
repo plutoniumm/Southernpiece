@@ -4,3 +4,4 @@ art/
 .claude/
 .vscode/
 package-lock.json
+rooms.json
