@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Art Gallery</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./index.css">
+</head>
+
+<body>
+  <canvas id="canvas" tabindex="0"></canvas>
+
+  <div id="loading">
+    <h1>GALLERY</h1>
+    <p>preparing the collection</p>
+    <div id="loading-bar">
+      <div id="loading-fill"></div>
+    </div>
+  </div>
+
+  <div id="capture-hint">
+    <span>click to enter</span>
+  </div>
+
+  <div id="xhair" style="opacity: 0.25;"></div>
+  <div id="floor-label"></div>
+  <div id="room-name"></div>
+  <div id="hint">E · stairs &nbsp;&nbsp; F · floors</div>
+  <div id="prompt"></div>
+  <div id="stair-arrow"></div>
+
+  <div id="jump-panel">
+    <div id="jump-title">FLOORS</div>
+    <div id="jump-list"></div>
+    <div id="jump-hint">click to jump · F or ESC to close</div>
+  </div>
+
+  <div id="viewer">
+    <div id="viewer-close">ESC / CLICK TO CLOSE</div>
+    <div id="viewer-content"></div>
+    <div id="viewer-name"></div>
+  </div>
+
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="./js/constants.js"></script>
+  <script src="./js/loader.js"></script>
+  <script src="./js/ui.js"></script>
+  <script src="./js/scene.js"></script>
+  <script src="./js/main.js"></script>
+</body>
+
+</html>

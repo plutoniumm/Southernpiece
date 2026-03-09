@@ -1,0 +1,325 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #080400;
+  font-family: Georgia, 'Times New Roman', serif;
+  overflow: hidden;
+}
+
+#canvas {
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  touch-action: none;
+  outline: none;
+}
+
+/* Loading */
+#loading {
+  position: fixed;
+  inset: 0;
+  background: #080400;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #c8a458;
+  z-index: 300;
+  transition: opacity 1.2s ease;
+}
+
+#loading h1 {
+  font-size: 2rem;
+  letter-spacing: 0.5em;
+  font-weight: normal;
+  margin-bottom: 0.5rem;
+}
+
+#loading p {
+  font-size: 0.75rem;
+  letter-spacing: 0.25em;
+  opacity: 0.5;
+  margin-bottom: 2.5rem;
+}
+
+#loading-bar {
+  width: 180px;
+  height: 1px;
+  background: #2a1a08;
+}
+
+#loading-fill {
+  height: 100%;
+  background: #c8a458;
+  width: 0%;
+  transition: width 0.4s ease;
+}
+
+/* Click-to-capture overlay (shown when pointer is not locked) */
+#capture-hint {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#capture-hint span {
+  color: rgba(200, 164, 88, 0.55);
+  font-size: 0.72rem;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  background: rgba(8, 4, 0, 0.55);
+  padding: 8px 22px;
+  border: 1px solid rgba(200, 164, 88, 0.2);
+}
+
+/* Crosshair */
+#xhair {
+  display: none;
+  /* shown by JS when pointer is locked */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(220, 180, 100, 0.75);
+  box-shadow: 0 0 6px rgba(220, 180, 100, 0.4);
+  pointer-events: none;
+  transition: transform 0.15s, background 0.15s;
+}
+
+#xhair.hot {
+  transform: translate(-50%, -50%) scale(2.5);
+  background: rgba(255, 210, 120, 1);
+}
+
+/* Floor label */
+#floor-label {
+  position: fixed;
+  top: 24px;
+  left: 28px;
+  color: rgba(200, 164, 88, 0.55);
+  font-size: 0.68rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+/* Room name — large calligraphic overlay */
+#room-name {
+  position: fixed;
+  top: 38px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(220, 185, 110, 0.65);
+  font-family: 'Cinzel Decorative', 'Palatino Linotype', serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  pointer-events: none;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+}
+
+/* Controls hint */
+#hint {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(180, 144, 70, 0.5);
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  pointer-events: none;
+}
+
+/* Action prompt */
+#prompt {
+  position: fixed;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #c8a458;
+  background: rgba(8, 4, 0, 0.75);
+  padding: 7px 22px;
+  border: 1px solid rgba(200, 164, 88, 0.25);
+  font-size: 0.78rem;
+  letter-spacing: 0.15em;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+#prompt.show {
+  opacity: 1;
+}
+
+/* Floor jump panel */
+#jump-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.96);
+  background: rgba(8, 4, 0, 0.92);
+  border: 1px solid rgba(200, 164, 88, 0.2);
+  padding: 32px 40px 24px;
+  min-width: 260px;
+  max-width: 380px;
+  display: none;
+  flex-direction: column;
+  align-items: stretch;
+  z-index: 250;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+
+#jump-panel.open {
+  display: flex;
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+#jump-title {
+  color: rgba(200, 164, 88, 0.5);
+  font-size: 0.65rem;
+  letter-spacing: 0.4em;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+#jump-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.jump-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.jump-item:hover {
+  border-color: rgba(200, 164, 88, 0.3);
+  background: rgba(200, 164, 88, 0.06);
+}
+
+.jump-item.current {
+  border-color: rgba(200, 164, 88, 0.5);
+}
+
+.jump-num {
+  color: rgba(200, 164, 88, 0.4);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  min-width: 22px;
+}
+
+.jump-name {
+  color: rgba(220, 190, 120, 0.9);
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  flex: 1;
+}
+
+.jump-count {
+  color: rgba(200, 164, 88, 0.3);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+}
+
+#jump-hint {
+  color: rgba(200, 164, 88, 0.25);
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-align: center;
+  margin-top: 20px;
+}
+
+/* Fullscreen viewer */
+#viewer {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 2, 0, 0.97);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  cursor: pointer;
+}
+
+#viewer.open {
+  display: flex;
+}
+
+#viewer img {
+  max-width: 90vw;
+  max-height: 88vh;
+  object-fit: contain;
+}
+
+#viewer video {
+  max-width: 90vw;
+  max-height: 88vh;
+  object-fit: contain;
+}
+
+#viewer-close {
+  position: fixed;
+  top: 22px;
+  right: 28px;
+  color: rgba(200, 164, 88, 0.6);
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+}
+
+#viewer-close:hover {
+  color: rgba(200, 164, 88, 1);
+}
+
+#viewer-name {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(200, 164, 88, 0.5);
+  font-size: 0.7rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+/* Stair direction arrow */
+#stair-arrow {
+  position: fixed;
+  bottom: 110px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(200, 164, 88, 0.4);
+  font-size: 1.5rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+#stair-arrow.show {
+  opacity: 1;
+}
