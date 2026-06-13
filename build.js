@@ -1,8 +1,7 @@
 #!/usr/bin/env bun
-// build.js — generates rooms.json from the art/ directory.
-// Images are embedded as base64 data URLs with dimensions.
-// Videos are referenced by relative URL (frame extracted at runtime in browser).
-// Output is suitable for static hosting (GitHub Pages etc.) without a server.
+// build.js — generates rooms.json from the art/ directory for static hosting.
+// Artworks are URL-only (no embedded bytes) so the JSON stays tiny; images carry
+// pixel dimensions parsed from the file header. Videos get a poster frame in-browser.
 //
 // Usage:  bun build.js        (or ./build.js after chmod +x)
 
@@ -14,14 +13,6 @@ const OUT = './rooms.json';
 
 const IMAGE_EXT = /\.(jpg|jpeg|png|gif|webp|avif|bmp|tiff?)$/i;
 const VIDEO_EXT = /\.(mp4|webm|mov|avi|mkv)$/i;
-
-/* ─── MIME type map ─────────────────────────────────────────────────────── */
-const MIME = {
-  '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-  '.png': 'image/png', '.gif': 'image/gif',
-  '.webp': 'image/webp', '.avif': 'image/avif',
-  '.bmp': 'image/bmp', '.tif': 'image/tiff', '.tiff': 'image/tiff',
-};
 
 /* ─── Dimension parsers (no external deps) ──────────────────────────────── */
 function pngDims ( buf ) {
@@ -91,7 +82,6 @@ const roomDirs = readdirSync( ART_DIR, { withFileTypes: true } )
   .sort();
 
 const rooms = [];
-let totalBytes = 0;
 
 for ( const roomName of roomDirs ) {
   const roomDir = join( ART_DIR, roomName );
@@ -111,16 +101,12 @@ for ( const roomName of roomDirs ) {
       artworks.push( { name, type: 'video', url: relUrl } );
       process.stdout.write( `  ▶  ${ roomName }/${ file }\n` );
     } else {
-      // Images: embed as base64 data URL + extract dimensions
+      // Images: URL + dimensions (read just the header for w/h, no embedding)
       const buf = readFileSync( join( roomDir, file ) );
-      const mime = MIME[ ext.toLowerCase() ] ?? 'application/octet-stream';
-      const b64 = buf.toString( 'base64' );
-      const dataUrl = `data:${ mime };base64,${ b64 }`;
       const dims = getDims( buf, ext ) ?? { w: 0, h: 0 };
-      totalBytes += buf.length;
 
-      artworks.push( { name, type: 'image', url: relUrl, dataUrl, imgW: dims.w, imgH: dims.h } );
-      process.stdout.write( `  ✓  ${ roomName }/${ file }  ${ dims.w }×${ dims.h }  (${ ( buf.length / 1024 ).toFixed( 0 ) } KB)\n` );
+      artworks.push( { name, type: 'image', url: relUrl, imgW: dims.w, imgH: dims.h } );
+      process.stdout.write( `  ✓  ${ roomName }/${ file }  ${ dims.w }×${ dims.h }\n` );
     }
   }
 
@@ -131,5 +117,5 @@ for ( const roomName of roomDirs ) {
 const json = JSON.stringify( rooms );
 writeFileSync( OUT, json );
 const kb = ( json.length / 1024 ).toFixed( 1 );
-const mb = ( json.length / 1024 / 1024 ).toFixed( 2 );
-console.log( `Wrote ${ OUT }  —  ${ mb } MB  (${ totalBytes / 1024 | 0 } KB raw images → ${ kb } KB JSON)\n` );
+const n = rooms.reduce( ( s, r ) => s + r.artworks.length, 0 );
+console.log( `Wrote ${ OUT }  —  ${ kb } KB  (${ n } artworks across ${ rooms.length } rooms, URLs only)\n` );

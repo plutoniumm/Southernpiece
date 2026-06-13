@@ -379,6 +379,10 @@ function addCeilingLights ( scene, fi, baseY ) {
   }
 }
 
+// Emissive levels: resting vs. bloomed-up-close (driven by proximity in main.js).
+const ART_DIM = 0.34;
+const ART_LIT = 1.18;
+
 function createPainting ( scene, slot, artwork, M ) {
   const { pos, rotY } = slot;
   const id = _paintIdx++;
@@ -404,24 +408,192 @@ function createPainting ( scene, slot, artwork, M ) {
   }, scene );
   plane.position.set( pos.x + fwdX * 0.05, pos.y, pos.z + fwdZ * 0.05 );
   plane.rotation.y = rotY;
-  plane.metadata = { isArt: true, artwork };
 
   const mat = new BABYLON.StandardMaterial( `artMat_${ id }`, scene );
   mat.specularColor = new BABYLON.Color3( 0, 0, 0 );
   mat.backFaceCulling = false;
   plane.material = mat;
 
-  if ( artwork.dataUrl ) {
+  // Images texture from their URL; only videos populate dataUrl (a poster frame).
+  const src = artwork.dataUrl || artwork.url;
+  const hasImg = !!src;
+  if ( hasImg ) {
     const tex = new BABYLON.Texture(
-      artwork.dataUrl, scene, true, true
+      src, scene, true, true
     );
     tex.uScale = -1;
     mat.diffuseTexture = tex;
     mat.emissiveTexture = tex;
-    mat.emissiveColor = new BABYLON.Color3( 1, 1, 1 );
+    mat.emissiveColor = new BABYLON.Color3( ART_DIM, ART_DIM, ART_DIM );
   } else {
-    mat.emissiveColor = new BABYLON.Color3( 0.15, 0.10, 0.05 );
+    mat.emissiveColor = new BABYLON.Color3( 0.12, 0.08, 0.04 );
   }
 
-  return plane;
+  // reactive: handles main.js's render loop uses each frame to drive the bloom.
+  const reactive = hasImg
+    ? { mat, glow: ART_DIM, baseW: paintW, baseH: paintH, plane }
+    : null;
+  plane.metadata = { isArt: true, artwork, reactive };
+
+  makePlaque( scene, artwork.name, rotY, pos, paintH, paintW );
+
+  return { plane, pos: plane.position, reactive };
+}
+
+function makePlaque ( scene, name, rotY, pos, paintH, paintW ) {
+  const w = Math.min( 1.7, Math.max( 0.9, paintW ) );
+  const h = 0.2;
+
+  const tex = new BABYLON.DynamicTexture(
+    `plaque_${ _paintIdx }`, { width: 512, height: 64 }, scene, true
+  );
+  const ctx = tex.getContext();
+  ctx.fillStyle = '#100a04';
+  ctx.fillRect( 0, 0, 512, 64 );
+  ctx.strokeStyle = 'rgba(200,164,88,0.4)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect( 3, 3, 506, 58 );
+
+  let label = ( name || '' ).toUpperCase();
+  ctx.font = '28px Georgia';
+  ctx.fillStyle = '#c8a458';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // Trim overly long titles so they stay on the plate.
+  while ( ctx.measureText( label ).width > 480 && label.length > 3 )
+    label = label.slice( 0, -2 );
+  ctx.fillText( label, 256, 34 );
+  tex.update();
+
+  const mat = new BABYLON.StandardMaterial( `plaqueMat_${ _paintIdx }`, scene );
+  mat.specularColor = new BABYLON.Color3( 0, 0, 0 );
+  mat.emissiveTexture = tex;
+  mat.emissiveColor = new BABYLON.Color3( 1, 1, 1 );
+  mat.diffuseTexture = tex;
+  mat.backFaceCulling = false;
+  mat.emissiveTexture.uScale = -1;
+  mat.diffuseTexture.uScale = -1;
+
+  const fwdX = Math.sin( rotY ), fwdZ = Math.cos( rotY );
+  const plate = BABYLON.MeshBuilder.CreatePlane(
+    `plaque_m_${ _paintIdx }`, { width: w, height: h }, scene
+  );
+  plate.position.set(
+    pos.x + fwdX * 0.06,
+    pos.y - paintH / 2 - FT - 0.22,
+    pos.z + fwdZ * 0.06
+  );
+  plate.rotation.y = rotY;
+  plate.material = mat;
+
+  return plate;
+}
+
+function moteTexture ( scene ) {
+  if ( scene._moteTex )
+    return scene._moteTex;
+
+  const t = new BABYLON.DynamicTexture(
+    'mote', { width: 64, height: 64 }, scene, false
+  );
+  const c = t.getContext();
+  const g = c.createRadialGradient( 32, 32, 0, 32, 32, 32 );
+  g.addColorStop( 0, 'rgba(255,236,196,1)' );
+  g.addColorStop( 1, 'rgba(255,236,196,0)' );
+  c.fillStyle = g;
+  c.fillRect( 0, 0, 64, 64 );
+  t.update();
+  t.hasAlpha = true;
+
+  scene._moteTex = t;
+  return t;
+}
+
+function addDustMotes ( scene, fi, baseY ) {
+  const ps = new BABYLON.ParticleSystem( `motes${ fi }`, 90, scene );
+  ps.particleTexture = moteTexture( scene );
+  ps.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD;
+
+  ps.minEmitBox = new BABYLON.Vector3( -RW / 2 + 1, baseY + 0.3, -RD / 2 + 1 );
+  ps.maxEmitBox = new BABYLON.Vector3( RW / 2 - 1, baseY + RH - 0.5, RD / 2 - 1 );
+  ps.emitter = new BABYLON.Vector3( 0, baseY + RH / 2, 0 );
+
+  ps.color1 = new BABYLON.Color4( 1.0, 0.86, 0.6, 0.18 );
+  ps.color2 = new BABYLON.Color4( 1.0, 0.78, 0.5, 0.10 );
+  ps.colorDead = new BABYLON.Color4( 1.0, 0.8, 0.5, 0 );
+
+  ps.minSize = 0.02;
+  ps.maxSize = 0.07;
+  ps.minLifeTime = 8;
+  ps.maxLifeTime = 16;
+  ps.emitRate = 12;
+
+  ps.direction1 = new BABYLON.Vector3( -0.05, 0.08, -0.05 );
+  ps.direction2 = new BABYLON.Vector3( 0.05, 0.16, 0.05 );
+  ps.minEmitPower = 0.02;
+  ps.maxEmitPower = 0.08;
+  ps.gravity = new BABYLON.Vector3( 0, 0.01, 0 );
+  ps.updateSpeed = 0.012;
+
+  ps.preWarmCycles = 120;
+  ps.start();
+  return ps;
+}
+
+function createCenterpiece ( scene, fi, baseY, artwork, M ) {
+  const src = artwork && ( artwork.dataUrl || artwork.url );
+  if ( !src )
+    return null;
+
+  const cx = 0, cz = 1.5;            // slightly south of dead-centre
+  const floorY = baseY + WT;
+
+  const plinth = BABYLON.MeshBuilder.CreateCylinder(
+    `plinth${ fi }`,
+    { height: 1.0, diameterTop: 0.95, diameterBottom: 1.15, tessellation: 8 },
+    scene
+  );
+  plinth.position.set( cx, floorY + 0.5, cz );
+  plinth.material = M.stair;
+  plinth.checkCollisions = true;
+
+  const pool = BABYLON.MeshBuilder.CreateDisc(
+    `pool${ fi }`, { radius: 2.4, tessellation: 40 }, scene
+  );
+  pool.rotation.x = Math.PI / 2;
+  pool.position.set( cx, floorY + 0.02, cz );
+  const poolMat = new BABYLON.StandardMaterial( `poolMat${ fi }`, scene );
+  poolMat.emissiveColor = new BABYLON.Color3( 0.55, 0.4, 0.18 );
+  poolMat.diffuseColor = new BABYLON.Color3( 0, 0, 0 );
+  poolMat.specularColor = new BABYLON.Color3( 0, 0, 0 );
+  poolMat.alpha = 0.32;
+  poolMat.disableLighting = true;
+  pool.material = poolMat;
+
+  const aspect = ( artwork.imgW && artwork.imgH )
+    ? artwork.imgW / artwork.imgH : 4 / 3;
+  const panelH = 1.7;
+  const panelW = Math.max( 1.0, Math.min( 3.2, panelH * aspect ) );
+
+  const panel = BABYLON.MeshBuilder.CreatePlane(
+    `feature${ fi }`, { width: panelW, height: panelH }, scene
+  );
+  panel.position.set( cx, floorY + 1.0 + 0.15 + panelH / 2, cz );
+
+  const pmat = new BABYLON.StandardMaterial( `featureMat${ fi }`, scene );
+  pmat.specularColor = new BABYLON.Color3( 0, 0, 0 );
+  pmat.backFaceCulling = false;
+  const tex = new BABYLON.Texture( src, scene, true, true );
+  tex.uScale = -1;
+  pmat.diffuseTexture = tex;
+  pmat.emissiveTexture = tex;
+  pmat.emissiveColor = new BABYLON.Color3( ART_DIM, ART_DIM, ART_DIM );
+  panel.material = pmat;
+  panel.metadata = { isArt: true, artwork };
+
+  return {
+    panel, pool, poolMat, mat: pmat,
+    pos: new BABYLON.Vector3( cx, floorY + 1.7, cz ),
+    spin: 0.15, glow: ART_DIM
+  };
 }

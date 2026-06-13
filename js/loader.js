@@ -45,37 +45,19 @@ function extractFrame ( url ) {
   } );
 }
 
-async function preloadDataUrl ( url ) {
-  try {
-    const blob = await fetch( url ).then( r => r.blob() );
-
-    const dataUrl = await new Promise( res => {
-      const r = new FileReader();
-      r.onload = () => res( r.result );
-      r.onerror = () => res( null );
-      r.readAsDataURL( blob );
+// Pixel size from a URL via Image decode (no base64). Only used when imgW/imgH
+// weren't baked in (live API path); the browser caches the decode for the texture.
+function dimsFromUrl ( url ) {
+  return new Promise( res => {
+    const img = new Image();
+    img.onload = () => res( {
+      w: img.naturalWidth,
+      h: img.naturalHeight
     } );
+    img.onerror = () => res( { w: 4, h: 3 } );
 
-    if ( !dataUrl )
-      return null;
-
-    const { w, h } = await new Promise( res => {
-      const img = new Image();
-      img.onload = () => res( {
-        w: img.naturalWidth,
-        h: img.naturalHeight
-      } );
-      img.onerror = () => res( { w: 4, h: 3 } );
-
-      img.src = dataUrl;
-    } );
-
-    return {
-      dataUrl, w, h
-    };
-  } catch ( _ ) {
-    return null;
-  }
+    img.src = url;
+  } );
 }
 
 function dimsFromDataUrl ( dataUrl ) {

@@ -38,32 +38,28 @@
     ];
   setProgress( 20 );
 
+  // Images texture lazily from their url (no base64); videos need a poster frame,
+  // and either may need a dimension probe when the source didn't supply imgW/imgH.
   const allArt = rooms.flatMap( r => r.artworks );
   for ( let i = 0;i < allArt.length;i++ ) {
     const art = allArt[ i ];
 
-    if ( art.dataUrl && art.imgW ) {
-    } else if ( art.dataUrl && !art.imgW ) {
-      const d = await dimsFromDataUrl( art.dataUrl );
+    if ( art.type === 'video' ) {
+      if ( !art.dataUrl ) {
+        const dataUrl = await extractFrame( art.url );
+        art.dataUrl = dataUrl;
+
+        if ( dataUrl && !art.imgW ) {
+          const d = await dimsFromDataUrl( dataUrl );
+          art.imgW = d.w;
+          art.imgH = d.h;
+        }
+      }
+    } else if ( !art.imgW ) {
+      // Image with no baked dimensions (live API path) — probe from the URL.
+      const d = await dimsFromUrl( art.url );
       art.imgW = d.w;
       art.imgH = d.h;
-    } else if ( art.type === 'video' ) {
-      const dataUrl = await extractFrame( art.url );
-      art.dataUrl = dataUrl;
-
-      if ( dataUrl ) {
-        const d = await dimsFromDataUrl( dataUrl );
-        art.imgW = d.w;
-        art.imgH = d.h;
-      }
-    } else {
-      const result = await preloadDataUrl( art.url );
-
-      if ( result ) {
-        art.dataUrl = result.dataUrl;
-        art.imgW = result.w;
-        art.imgH = result.h;
-      }
     }
 
     setProgress(
@@ -127,6 +123,8 @@
   setProgress( 60 );
 
   const stairZones = [];
+  const paintingsByFloor = [];
+  const centerpieces = [];
 
   for ( let fi = 0;fi < rooms.length;fi++ ) {
     const room = rooms[ fi ];
@@ -134,11 +132,18 @@
 
     buildRoom( scene, fi, baseY, M );
     addCeilingLights( scene, fi, baseY );
+    addDustMotes( scene, fi, baseY );
 
     const slots = getSlots( baseY );
     const arts = room.artworks;
-    for ( let i = 0;i < Math.min( slots.length, arts.length );i++ )
-      createPainting( scene, slots[ i ], arts[ i ], M );
+    const floorPaintings = [];
+    for ( let i = 0;i < Math.min( slots.length, arts.length );i++ ) {
+      const rec = createPainting( scene, slots[ i ], arts[ i ], M );
+      if ( rec.reactive )
+        floorPaintings.push( rec );
+    }
+    paintingsByFloor.push( floorPaintings );
+    centerpieces.push( createCenterpiece( scene, fi, baseY, arts[ 0 ], M ) );
 
     const northZ = -RD / 2 - 2;
 
@@ -175,8 +180,15 @@
   } );
 
   let hoveredArt = null;
+  let prevFloor = -1;       // relax other floors' bloom on floor change
   let nearZone = null;
   let transitioning = false;
+
+  const setGlow = ( rec, v ) => {
+    rec.reactive.glow = v;
+    rec.reactive.mat.emissiveColor.set( v, v, v );
+    rec.plane.scaling.x = rec.plane.scaling.y = 1;
+  };
 
   document.addEventListener( 'keydown', e => {
     if ( e.code === 'KeyE' && nearZone && !transitioning && !jumpOpen )
@@ -270,6 +282,53 @@
 
     $label.textContent = `Floor ${ fi + 1 }`;
     $roomName.textContent = rooms[ fi ]?.name?.toUpperCase() || '';
+
+    // Only the current floor animates; settle the others back to resting state
+    // on a floor change so a half-bloomed piece doesn't stay bright off-screen.
+    if ( fi !== prevFloor ) {
+      for ( let f = 0;f < paintingsByFloor.length;f++ ) {
+        if ( f === fi ) continue;
+        for ( const rec of paintingsByFloor[ f ] )
+          setGlow( rec, ART_DIM );
+        const c = centerpieces[ f ];
+        if ( c ) { c.glow = ART_DIM; c.poolMat.alpha = 0.32; }
+      }
+      prevFloor = fi;
+    }
+
+    const camPos = camera.position;
+
+    for ( const rec of paintingsByFloor[ fi ] ) {
+      const d = BABYLON.Vector3.Distance( camPos, rec.pos );
+      let target = ART_DIM + ( ART_LIT - ART_DIM ) *
+        Math.max( 0, Math.min( 1, ( 8 - d ) / 5.8 ) );
+      let scale = 1;
+
+      if ( rec.plane.metadata.artwork === hoveredArt ) {
+        target = ART_LIT + 0.12;
+        scale = 1.03 + Math.sin( performance.now() * 0.004 ) * 0.015;
+      }
+
+      rec.reactive.glow += ( target - rec.reactive.glow ) * 0.15;
+      const g = rec.reactive.glow;
+      rec.reactive.mat.emissiveColor.set( g, g, g );
+      rec.plane.scaling.x = rec.plane.scaling.y = scale;
+    }
+
+    const cp = centerpieces[ fi ];
+    if ( cp ) {
+      const d = BABYLON.Vector3.Distance( camPos, cp.pos );
+      const near = Math.max( 0, Math.min( 1, ( 6 - d ) / 5 ) );
+
+      cp.panel.rotation.y += ( 0.15 + near * 0.55 ) * 0.016;
+      const tg = ART_DIM + ( ART_LIT - ART_DIM ) * near;
+      cp.glow += ( tg - cp.glow ) * 0.12;
+      cp.mat.emissiveColor.set( cp.glow, cp.glow, cp.glow );
+      cp.poolMat.alpha = 0.28 + near * 0.4;
+    }
+
+    const hemiTarget = hoveredArt ? 0.10 : 0.15;
+    hemi.intensity += ( hemiTarget - hemi.intensity ) * 0.08;
   } );
 
   function doTransition ( zone ) {

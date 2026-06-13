@@ -5,3 +5,4 @@ art/
 .vscode/
 package-lock.json
 rooms.json
+claude.md
